@@ -85,13 +85,13 @@ string Ipadrtostring(int ip, int port)
 	return ans;
 }
 
-void AddMessage(FILE * filestream, mutex & mutexFile, string warning, const time_t actime, int IPaddr, int port = -1)
+void AddMessage(FILE * filestream, mutex & mutexFile, string warning, const time_t actime, string IPadr)
 {
 	mutexFile.lock();
 		char time[TIME_LENGTH];
 		tm* actual = localtime(&actime);
 		strftime(time, TIME_LENGTH, "%X-%F", actual);
-		fprintf(filestream, "%s %s %s\n", time, data(Ipadrtostring(IPaddr, port)), data(warning));
+		fprintf(filestream, "%s %s %s\n", time, data(IPadr), data(warning));
 	mutexFile.unlock();
 }
 
@@ -222,7 +222,7 @@ void Work(int myport = PORT)
 {
 	EasyInterface netInterface;
 	string strmsg, command;
-	IPAdress ipClient;
+	int ipClient;
 	netInterface.Bind(myport);
 	while (!AlreadyClosed())
 	{
@@ -252,15 +252,15 @@ void Work(int myport = PORT)
 			}
 			else if (command == "warn")
 			{
-				AddMessage(fWarn, mutexWarn, strmsg, time(0), ipClient.GetIP(), ipClient.GetPort());
+				AddMessage(fWarn, mutexWarn, strmsg, time(0), netInterface.InfoString(ipClient));
 			}
 			else if (command == "info")
 			{
-				AddMessage(fInfo, mutexInfo, strmsg, time(0), ipClient.GetIP(), ipClient.GetPort());
+				AddMessage(fInfo, mutexInfo, strmsg, time(0), netInterface.InfoString(ipClient));
 			}
 			else if (command == "error")
 			{
-				AddMessage(fError, mutexError, strmsg, time(0), ipClient.GetIP(), ipClient.GetPort());
+				AddMessage(fError, mutexError, strmsg, time(0), netInterface.InfoString(ipClient));
 			}
 		}
 		netInterface.CheckConnection();
