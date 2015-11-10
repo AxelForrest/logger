@@ -7,7 +7,8 @@
 #define WAIT_FOR_APROOV 1
 #define WAIT_FOR_DATA 2
 #define WAIT_FOR_COMMAND 3
-#define LENGTH_OF_COMMAND 5
+#define WAIT_FOR_HELLO 4
+#define LENGTH_OF_COMMAND 9
 #define LIVE_TIME 1
 #define COUNT_OF_TRY 10
 #define SIZE_OF_MSG_MAX (MAX_BUF_SIZE - LENGTH_OF_COMMAND - 4) 
@@ -17,11 +18,11 @@ using namespace std;
 
 namespace logger
 {
-
 	class Connection
 	{
 	private:
 		IPAdress dest;
+		int id;
 		Socket_UDP* pSock;
 		std::string allData;
 		char cMsg[MAX_BUF_SIZE], temp[MAX_BUF_SIZE];
@@ -40,22 +41,27 @@ namespace logger
 			return ans;
 		}
 
+		void MakeHeader(char* strdest, char ch, int size /* without length of command*/, int connection_id) 
+		{
+			strdest[0] = "D";
+			IntToFourChar(&strdest[1], size);
+			IntToFourChar(&strdest[5], connection_id); // for nat;
+		}
+
 		void SendPart(int num)
 		{
 			printf("Send data number %d\n", num);
 			if ((num)* (SIZE_OF_MSG_MAX) < allData.length())
 			{
-				temp[0] = 'D';
-				IntToFourChar(&temp[1], 4 + min(SIZE_OF_MSG_MAX, allData.length() - (num)* (SIZE_OF_MSG_MAX)));
-				IntToFourChar(&temp[5], num);
-				memcpy(&temp[9], &allData[num*(SIZE_OF_MSG_MAX)], min((SIZE_OF_MSG_MAX), allData.length() - (num * (SIZE_OF_MSG_MAX))));
+				MakeHeader(temp, 'D', 4 + min(SIZE_OF_MSG_MAX, allData.length() - (num)* (SIZE_OF_MSG_MAX)), id);
+				IntToFourChar(&temp[LENGTH_OF_COMMAND], num);
+				memcpy(&temp[LENGTH_OF_COMMAND + 4], &allData[num*(SIZE_OF_MSG_MAX)], min((SIZE_OF_MSG_MAX), allData.length() - (num * (SIZE_OF_MSG_MAX))));
 				tsize = min(SIZE_OF_MSG_MAX, allData.length() - (num)* (SIZE_OF_MSG_MAX)) + 4 + LENGTH_OF_COMMAND;
 				pSock->Sendto(temp, tsize, dest);
 			}
 			else
 			{
-				temp[0] = 'S';
-				IntToFourChar(&temp[1], numberof);
+				MakeHeader(temp, 'S', 0, id);
 				tsize = LENGTH_OF_COMMAND;
 				pSock->Sendto(temp, LENGTH_OF_COMMAND, dest);
 			}
@@ -84,11 +90,20 @@ namespace logger
 			status = WAIT_FOR_COMMAND;
 		}
 
+		void ReciveHello(int newID)
+		{ 
+			if (id < 0)
+			{
+				id = newID;
+			}
+			printf("Connection with %d:%d set. New id = %d\n", dest.GetIP(), dest.GetPort(), newID);
+			status = WAIT_FOR_COMMAND;
+		}
+
 		void SendAproove()
 		{
 			printf("Send Aproove\n");
-			temp[0] = 'A';
-			IntToFourChar(&temp[1], numberof);
+			MakeHeader(temp, 'A', numberof, id);
 			tsize = LENGTH_OF_COMMAND;
 			pSock->Sendto(temp, LENGTH_OF_COMMAND, dest);
 		}
@@ -96,11 +111,9 @@ namespace logger
 		void SendAproove(int n)
 		{
 			printf("Send Aproove\n");
-			temp[0] = 'A';
-			IntToFourChar(&temp[1], n);
+			MakeHeader(temp, 'A', n, id);
 			tsize = LENGTH_OF_COMMAND;
 			pSock->Sendto(temp, LENGTH_OF_COMMAND, dest);
-
 		}
 
 		void RecivePart(const char* data)
@@ -112,14 +125,29 @@ namespace logger
 
 	public:
 
+		void GetFromHeader(const char* strsource, char& command, int& size, int& id) 
+		{
+			command = strsource[0];
+			size = IntFromStr(strsource[1]);
+			id = IntFromStr(strsource[5]);
+		}
+
+		void SendHello(int forConnectID = id) 
+		{
+			MakeHeader(temp, 'H', id, forConnectID);
+			tsize = LENGTH_OF_COMMAND;
+			pSock->Sendto(temp, tsize, dest);
+		}
+
 		Connection() { time(&lastSucces); tryies = 0; }
 
-		Connection(IPAdress newDest, Socket_UDP* newpSock)
+		Connection(IPAdress newDest, Socket_UDP* newpSock, int newID)
 		{
 			dest = newDest;
+			id = newID;
 			pSock = newpSock;
 			allData.clear();
-			status = WAIT_FOR_COMMAND;
+			status = WAIT_FOR_HELLO;
 			reciveSuc = 0;
 			time(&lastSucces);
 			tryies = 0;
@@ -130,82 +158,83 @@ namespace logger
 			return status;
 		}
 
-		void WorkOn(char* data, unsigned int size)
+		void WorkOn(char* data)
 		{
-			//nonActive = 0;
-			//printf("WorkON %c%c%c%c%c\n", data[0], data[1], data[2], data[3], data[4]);//DEBUG_______________________________________________ 
-			//cout << allData << "_" << dest.GetIP() << "_" << status << endl;
-			//if (allData == "" && status == 3)
-			//{
-			//	char c;
-			//	cin >> c;
-			//}
-			//printf("Status %d\n", status);
-			if (data[0] == 'D')
+			char action;
+			int size, id;
+			GetFromHeader(data, action, size, id);
+			if (action == 'H')
 			{
-				size = IntFromStr(&data[1]) + LENGTH_OF_COMMAND;
-			}
-			pSock->Recive(data, size, dest);
-			if (status == WAIT_FOR_APROOV && data[0] == 'A')
-			{
-				printf("%c%c%c%c%c\n", data[0], data[1], data[2], data[3], data[4]);
-				printf("%d\n", IntFromStr(&data[1]));
-				if ((numberof) == IntFromStr(&data[1]))
+				pSock->Recive(data, LENGTH_OF_COMMAND, dest);
+				if (status == WAIT_FOR_HELLO)
 				{
-					ReciveAproove();
-					time(&lastSucces);
-					tryies = 0;
+					ReciveHello(size);
 				}
 			}
-			else if (status == WAIT_FOR_DATA)
+			else
 			{
-				printf("Work with data %c\n", data[0]);
-				if (data[0] == 'D')
+				pSock->Recive(data, size, dest);
+				if (status == WAIT_FOR_APROOV && action == 'A')
 				{
-					data[size] = 0;
-					if (numberof == IntFromStr(&data[LENGTH_OF_COMMAND])) {
-						RecivePart(&data[LENGTH_OF_COMMAND + 4]);
+					printf("%c%c%c%c%c\n", action, data[1], data[2], data[3], data[4]);
+					printf("%d\n", IntFromStr(&data[1]));
+					if ((numberof) == IntFromStr(&data[1]))
+					{
+						ReciveAproove();
 						time(&lastSucces);
 						tryies = 0;
 					}
-					else if (numberof > IntFromStr(&data[LENGTH_OF_COMMAND]))
+				}
+				else if (status == WAIT_FOR_DATA)
+				{
+					printf("Work with data %c\n", action);
+					if (action == 'D')
 					{
-						SendAproove(IntFromStr(&data[LENGTH_OF_COMMAND]));
-						time(&lastSucces);
-						tryies = 0;
+						data[size] = 0;
+						if (numberof == IntFromStr(&data[LENGTH_OF_COMMAND])) {
+							RecivePart(&data[LENGTH_OF_COMMAND + 4]);
+							time(&lastSucces);
+							tryies = 0;
+						}
+						else if (numberof > IntFromStr(&data[LENGTH_OF_COMMAND]))
+						{
+							SendAproove(IntFromStr(&data[LENGTH_OF_COMMAND]));
+							time(&lastSucces);
+							tryies = 0;
 
+						}
 					}
-				}
-				else if (data[0] == 'S')
-				{
-					time(&lastSucces);
-					SendAproove();
-					reciveSuc = 1;
-					tryies = 0;
-				}
-			}
-			else if (status == WAIT_FOR_COMMAND)
-			{
-				if (data[0] == 'D')
-				{
-					status = WAIT_FOR_DATA;
-					data[size] = 0;
-					numberof = 0;
-					if (numberof == IntFromStr(&data[LENGTH_OF_COMMAND]))
+					else if (data[0] == 'S')
 					{
-						RecivePart(&data[LENGTH_OF_COMMAND + 4]);
 						time(&lastSucces);
+						SendAproove();
+						reciveSuc = 1;
 						tryies = 0;
 					}
 				}
-				else if (data[0] == 'S')
+				else if (status == WAIT_FOR_COMMAND)
 				{
-					numberof == 0;
-					allData.clear();
-					SendAproove();
-					reciveSuc = 1;
-					time(&lastSucces);
-					tryies = 0;
+					if (data[0] == 'D')
+					{
+						status = WAIT_FOR_DATA;
+						data[size] = 0;
+						numberof = 0;
+						if (numberof == IntFromStr(&data[LENGTH_OF_COMMAND]))
+						{
+							RecivePart(&data[LENGTH_OF_COMMAND + 4]);
+							time(&lastSucces);
+							tryies = 0;
+						}
+					}
+					else if (data[0] == 'S')
+					{
+						numberof == 0;
+						allData.clear();
+						SendAproove();
+						reciveSuc = 1;
+						time(&lastSucces);
+						tryies = 0;
+					}
 				}
 			}
 		}
@@ -265,7 +294,8 @@ namespace logger
 	private:
 		Socket_UDP sock;
 		IPAdress ClientAdress;
-		map<IPAdress, Connection> connections;
+		map<int, Connection> connections;
+		map<int, IPAdress> idtoIP;
 		char cData[MAX_LENGTH_OF_MSG];
 		map<IPAdress, bool> forDelete;
 		time_t now, last;
@@ -275,7 +305,7 @@ namespace logger
 		EasyInterface()
 		{
 			sock.MakeNonBlock();
-			time(&last);
+			srand(time(&last));
 		}
 
 		void Bind(unsigned short port)
@@ -289,45 +319,66 @@ namespace logger
 			sock.Close();
 		}
 
-		bool NextReciveMSG(string &message, IPAdress &source)
+		bool NextReciveMSG(string &message, int& source)
 		{
-			ClientAdress = source;
-			while (true)
+			while (ISReciveMSG(message, source))
 			{
-				if (sock.Recive(&cData[0], LENGTH_OF_COMMAND, ClientAdress, MSG_PEEK)) {
-
-					if (connections.find(ClientAdress) == connections.end())
-						connections[ClientAdress] = Connection(ClientAdress, &sock);
-					connections[ClientAdress].WorkOn(&cData[0], LENGTH_OF_COMMAND);
-					if (connections.begin() != connections.end() && connections[ClientAdress].IsReciveSuccesfull())
-					{
-						message = connections[ClientAdress].Message();
-						source = ClientAdress;
-						connections[ClientAdress].RelaxRecive();
-						return true;
-					}
-				}
-				CheckConnection();
 				if (connections.size() == 0)
 				{
 					return false;
 				}
 			}
+			return true;
 		}
 
-		bool ISReciveMSG(string &message, IPAdress &source)
+		int SendNewConnection(const IPAdress& dest)
 		{
-			ClientAdress = source;
+			int connectID = -(rand() + 1);
+			iptoID[connectID] = dest;
+			connections[connectID] = Connection(dest, &sock, connectID);
+			connections[connectID].SendHello();
+			return connectID;
+		}
+
+		int RecivedNewConnection(const IPAdress& dest, int connectID) 
+		{
+			int legalID;
+			do {
+				legalID = rand();
+			} while (connections.find(legalID) != connections.end());
+			connections[legalID] = Connection(dest, &sock, connectID);
+			connections[legalID].SendHello(connectID);
+			return legalID;
+		}
+
+		bool ISReciveMSG(string &message, int& source)
+		{
 			if (sock.Recive(&cData[0], LENGTH_OF_COMMAND, ClientAdress, MSG_PEEK)) 
 			{
-				if (connections.find(ClientAdress) == connections.end())
-					connections[ClientAdress] = Connection(ClientAdress, &sock);
-				connections[ClientAdress].WorkOn(&cData[0], LENGTH_OF_COMMAND);
-				if (connections.begin() != connections.end() && connections[ClientAdress].IsReciveSuccesfull())
+				char comm; int size, id;
+				Connection().GetFromHeader(&cData[0], comm, size, id);
+				if (comm == 'H')
 				{
-					message = connections[ClientAdress].Message();
-					source = ClientAdress;
-					connections[ClientAdress].RelaxRecive();
+					if (connections.find(id) == connections.end()) 
+					{
+						id = RecivedNewConnection(ClientAdress, id);
+						idtoIP[id] = ClientAdress;
+					}
+					else 
+					{
+						connections[size] = connnections[id];
+						idtoIP[size] = ClientAdress;
+						connections.erase(id);
+						idtoIP.erase(id);
+						id = size;
+					}
+				} 
+				connections[id].WorkOn(&cData[0], LENGTH_OF_COMMAND);
+				if (connections.begin() != connections.end() && connections[id].IsReciveSuccesfull())
+				{
+					message = connections[id].Message();
+					source = id;
+					connections[id].RelaxRecive();
 					return true;
 				}
 			}
@@ -335,12 +386,19 @@ namespace logger
 			return false;
 		}
 
-		void SendMessageW(const string &msg, const IPAdress & dest)
+		bool SendMessageW(const string &msg, const int & id)
 		{
-			ClientAdress = dest;
-			if (connections.find(ClientAdress) == connections.end())
-				connections[ClientAdress] = Connection(ClientAdress, &sock);
-			connections[ClientAdress].SendMSG(&msg[0]);
+			if (connections.find(id) == connections.end())
+			{
+				printf("Bad id = %d\n", id);
+				return false
+			}
+			else if (id < 0) 
+			{
+				printf("Sorry not yet connected id = %d\n", id);
+				return false;
+			}
+			connections[id].SendMSG(&msg[0]);
 		}
 
 		bool NextReciveFrom(string &msg, IPAdress & source)
