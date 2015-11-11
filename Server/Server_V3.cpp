@@ -70,13 +70,9 @@ string TakeFrom(const string & source, time_t t1, time_t t2)
 string Ipadrtostring(int ip, int port) 
 {
 	string ans("");
-	ans = itoa(ip >> 24, &ans[ans.length()], 10);
-	ans += '.';
-	ans += itoa((ip << 8) >> 24, &ans[ans.length()], 10);
-	ans += '.';
-	ans += itoa((ip << 16) >> 24, &ans[ans.length()], 10);
-	ans += '.';
-	ans += itoa((ip << 24) >> 24, &ans[ans.length()], 10);
+	char buff[4];
+	memcpy(buff, &ip, 4); //4 - length of int
+	sprintf(&ans[0], "%u.%u.%u.%u", buff[3], buff[2], buff[1], buff[0]);
 	if (port > 0) 
 	{
 		ans += ':';
@@ -185,9 +181,12 @@ void ClearLog()
 	}
 }
 
+
+
 string ConstructAnswer(time_t down, time_t up)
 {
 	return TakeFrom(SendWarnings(), down, up) + TakeFrom(SendInfos(), down, up) + TakeFrom(SendErrors(), down, up);
+
 }
 
 bool AlreadyClosed()
@@ -210,11 +209,12 @@ void CloseControl()
 {
 	while (true)
 	{
-		if (kbhit() != 0 && getch() == 'e') 
+		if (kbhit() != 0 && getch() == 'e')
 		{
 			CloseServer();
 			return;
 		}
+		Sleep(500);
 	}
 }
 
@@ -233,7 +233,7 @@ void Work(int myport = PORT)
 			{
 				time_t tstart = time(0), tend = time(0);
 				ReadTime(&strmsg[0], tstart, tend);
-				netInterface.SendMessageW(ConstructAnswer(tstart, tend), ipClient);
+		    	netInterface.SendMessageW(ConstructAnswer(tstart, tend), ipClient);
 			} else if (command == "clear") 
 			{
 				ClearLog();
