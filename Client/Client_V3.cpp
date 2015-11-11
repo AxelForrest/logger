@@ -87,12 +87,12 @@ bool GetRequestTimeBorders(string &Time)
 	return false;
 }
 
-void SendCommand(string command, EasyInterface& NetPlace, IPAdress dest)
+void SendCommand(string command, EasyInterface& NetPlace, int dest)
 {
 	NetPlace.UntilSendMessage(command, dest);
 }
 
-string SendRequest(string command, EasyInterface& NetPlace, IPAdress dest)
+string SendRequest(string command, EasyInterface& NetPlace, int  dest)
 {
 	NetPlace.UntilSendMessage(command, dest);
 	string result = "";
@@ -111,8 +111,14 @@ void Work()
 	EasyInterface netInterface;	
 	string strmsg;
 	srand(time(0));
-	IPAdress serverIP(127, 0, 0, 1, PORT + (rand() % 3));
+	IPAdress serverAdr(127, 0, 0, 1, PORT + (rand() % 3));
 	netInterface.Bind(0);
+	int serverIP = netInterface.MakeNewConnection(serverAdr);
+	if (serverIP < 0)
+	{
+		cout << "Just shit happend. No Server." << endl;
+		return;
+	}
 	string s(""), msg("");
 	while (s != "exit")
 	{
