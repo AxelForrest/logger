@@ -125,6 +125,7 @@ void Work()
 	string strmsg;
 	srand(time(0));
 	IPAdress serverAdr(127, 0, 0, 1, PORT + (rand() % 3));
+<<<<<<< HEAD
 	int serverIP;
 	do
 	{
@@ -143,6 +144,15 @@ void Work()
 			cout << "Trying reconnect...\n" << endl;
 		}
 	} while (serverIP < 0);
+=======
+	netInterface.Bind(0);
+	int serverIP = netInterface.MakeNewConnection(serverAdr);
+	if (serverIP < 0)
+	{
+		cout << "Just shit happend. No Server." << endl;
+		return;
+	}
+>>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 	string s(""), msg("");
 	while (s != "exit")
 	{
