@@ -9,11 +9,7 @@
 #define WAIT_FOR_HELLO 4
 #define RECIVE_SUCCESFUL 5
 #define LENGTH_OF_COMMAND 9
-<<<<<<< HEAD
 #define LIVE_TIME 0.5
-=======
-#define LIVE_TIME 1
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 #define COUNT_OF_TRY 10
 #define SIZE_OF_MSG_MAX (MAX_BUF_SIZE - LENGTH_OF_COMMAND - 4) 
 using namespace newsockets;
@@ -189,7 +185,6 @@ namespace logger
 			return status;
 		}
 
-<<<<<<< HEAD
 		void WorkOn(string & data)
 		{
 			char action;
@@ -198,16 +193,6 @@ namespace logger
 			pSock->Recive(data, dest);
 			if (action == 'H')
 			{
-=======
-		void WorkOn(char* data)
-		{
-			char action;
-			int size, idinfo;
-			GetFromHeader(data, action, size, idinfo);
-			if (action == 'H')
-			{
-				pSock->Recive(data, LENGTH_OF_COMMAND, dest);
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 				if (status == WAIT_FOR_HELLO)
 				{
 					ReciveHello(size);
@@ -216,10 +201,6 @@ namespace logger
 			else
 			{
 				size += LENGTH_OF_COMMAND;
-<<<<<<< HEAD
-=======
-				pSock->Recive(data, size, dest);
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 				printf("Reciving data\n");
 			//	for (int i = 0; i < size; ++i)
 			//		printf("%c\n", data[i]);
@@ -264,7 +245,6 @@ namespace logger
 				else if (status == WAIT_FOR_COMMAND)
 				{
 					if (action == 'D')
-<<<<<<< HEAD
 					{
 						status = WAIT_FOR_DATA;
 						data[size] = 0;
@@ -278,21 +258,6 @@ namespace logger
 					}
 					else if (action == 'S')
 					{
-=======
-					{
-						status = WAIT_FOR_DATA;
-						data[size] = 0;
-						numberof = 0;
-						if (numberof == IntFromStr(&data[LENGTH_OF_COMMAND]))
-						{
-							RecivePart(&data[LENGTH_OF_COMMAND + 4]);
-							time(&lastSucces);
-							tryies = 0;
-						}
-					}
-					else if (action == 'S')
-					{
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 						numberof == 0;
 						allData.clear();
 						SendAproove();
@@ -375,11 +340,7 @@ namespace logger
 		Socket_UDP sock;
 		IPAdress ClientAdress;
 		map<int, Connection> connections;
-<<<<<<< HEAD
 		string cData;
-=======
-		char cData[MAX_LENGTH_OF_MSG];
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 		map<int, bool> forDelete;
 		time_t now, last;
 		//			Connection currentConnection;
@@ -402,7 +363,6 @@ namespace logger
 			sock.Close();
 		}
 
-<<<<<<< HEAD
 		void Reset() 
 		{
 			sock.Reset(false);
@@ -410,10 +370,6 @@ namespace logger
 
 		bool NextReciveMSG(string &message, int& source)
 		{
-=======
-		bool NextReciveMSG(string &message, int& source)
-		{
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 			while (ISReciveMSG(message, source))
 			{
 				if (connections.size() == 0)
@@ -422,7 +378,6 @@ namespace logger
 				}
 			}
 			return true;
-<<<<<<< HEAD
 		}
 
 		int AskNewConnection(const IPAdress& dest)
@@ -448,30 +403,6 @@ namespace logger
 			for (int i = 0; i < 100000; ++i)
 			{
 				if (sock.Recive(cData, ClientAdress, MSG_PEEK))
-=======
-		}
-
-		int AskNewConnection(const IPAdress& dest)
-		{
-			int connectID = -(rand() + 1);
-			connections[connectID] = Connection(dest, &sock, connectID);
-			connections[connectID].SendHello();
-			return connectID;
-		}
-
-		int MakeNewConnection(const IPAdress& dest)
-		{
-			int result = AskNewConnection(dest);
-			WaitForConnect(result);
-			return result;
-		}
-
-		int WaitForConnect(int & connectionID)
-		{
-			for (int i = 0; i < 10000000; ++i)
-			{
-				if (sock.Recive(&cData[0], LENGTH_OF_COMMAND, ClientAdress, MSG_PEEK))
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 				{
 					char comm; int size, id;
 					Connection().GetFromHeader(&cData[0], comm, size, id);
@@ -494,21 +425,13 @@ namespace logger
 					}
 					if (connections.find(id) != connections.end())
 					{
-<<<<<<< HEAD
 						connections[id].WorkOn(cData);
-=======
-						connections[id].WorkOn(&cData[0]);
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 						if (id == connectionID)
 						{
 							return true;
 						}
 					}
-<<<<<<< HEAD
 					else { sock.Recive(cData, ClientAdress); }
-=======
-					else { sock.Recive(&cData[0], LENGTH_OF_COMMAND, ClientAdress); }
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 				}
 			}
 			return false;
@@ -527,11 +450,7 @@ namespace logger
 
 		bool ISReciveMSG(string &message, int& source)
 		{
-<<<<<<< HEAD
 			if (sock.Recive(cData, ClientAdress, MSG_PEEK))
-=======
-			if (sock.Recive(&cData[0], LENGTH_OF_COMMAND, ClientAdress, MSG_PEEK))
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 			{
 				char comm; int size, id;
 				Connection().GetFromHeader(&cData[0], comm, size, id);
@@ -551,11 +470,7 @@ namespace logger
 				}
 				if (connections.find(id) != connections.end())
 				{
-<<<<<<< HEAD
 					connections[id].WorkOn(cData);
-=======
-					connections[id].WorkOn(&cData[0]);
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 					if (connections.begin() != connections.end() && connections[id].IsReciveSuccesfull())
 					{
 						message = connections[id].Message();
@@ -564,11 +479,7 @@ namespace logger
 						return true;
 					}
 				}
-<<<<<<< HEAD
 				else { sock.Recive(cData, ClientAdress); }
-=======
-				else { sock.Recive(&cData[0], LENGTH_OF_COMMAND, ClientAdress); }
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 			}
 			CheckConnection();
 			return false;
@@ -634,21 +545,13 @@ namespace logger
 					}
 					if (connections.find(id) != connections.end())
 					{
-<<<<<<< HEAD
 						connections[id].WorkOn(cData);
-=======
-						connections[id].WorkOn(&cData[0]);
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 						if (connections[id].IsReciveSuccesfull())
 						{
 							connections[id].RelaxRecive();
 						}
 					}
-<<<<<<< HEAD
 					else { sock.Recive(cData, ClientAdress); }
-=======
-					else { sock.Recive(&cData[0], LENGTH_OF_COMMAND, ClientAdress); }
->>>>>>> 22d39a9598e5f1256810f619b974579bab063c84
 				}
 				time(&now);
 			}
