@@ -1,6 +1,8 @@
+
 #include <thread>
 #include <iostream>
 #include <set>
+#include <conio.h>
 #include "Logger.h"
 //#include "SocketXela.h"
 #define BUF_LEN 10
@@ -87,19 +89,30 @@ bool GetRequestTimeBorders(string &Time)
 	return false;
 }
 
-void SendCommand(string command, EasyInterface& NetPlace, IPAdress dest)
+void SendCommand(string command, EasyInterface& NetPlace, int dest)
 {
 	NetPlace.UntilSendMessage(command, dest);
 }
 
-string SendRequest(string command, EasyInterface& NetPlace, IPAdress dest)
+string SendRequest(string command, EasyInterface& NetPlace, int  dest)
 {
-	NetPlace.UntilSendMessage(command, dest);
 	string result = "";
-	NetPlace.NextReciveFrom(result, dest);
+	if (NetPlace.UntilSendMessage(command, dest))
+	{
+		
+		NetPlace.NextReciveFrom(result, dest);
+	} 
 	if (result.length() == 0)
 	{
 		result = "SORRY - NO DATA FOR YOUR REQUEST";
+	}
+	else if (result.length() > 1000000)
+	{
+		FILE* f;
+		fopen_s(&f, "big_data", "a");
+		fprintf(f, "%s", data(result));
+		fclose(f);
+		result = "SORRY - DATA TOO BIG. IT WAS SAVE IN big_data FILE.";
 	}
 	return result;
 }
@@ -111,8 +124,25 @@ void Work()
 	EasyInterface netInterface;	
 	string strmsg;
 	srand(time(0));
-	IPAdress serverIP(127, 0, 0, 1, PORT + (rand() % 3));
-	netInterface.Bind(0);
+	IPAdress serverAdr(127, 0, 0, 1, PORT + (rand() % 3));
+	int serverIP;
+	do
+	{
+		netInterface.Bind(0);
+		serverIP = netInterface.MakeNewConnection(serverAdr);
+		if (serverIP < 0)
+		{
+			netInterface.Reset();
+			char cTry;
+			printf("NO SERVER. Try connect again? Y,y - YES, anothet symbol - NO\n");
+			cTry = _getch();
+			if (cTry != 'Y' && cTry != 'y') 
+			{
+				return;
+			}
+			cout << "Trying reconnect...\n" << endl;
+		}
+	} while (serverIP < 0);
 	string s(""), msg("");
 	while (s != "exit")
 	{
@@ -133,7 +163,6 @@ void Work()
 					ReadLN(msg);
 					s = s + msg;
 				}
-				//cout << serverIP.GetIP();
 				if (s == "request_warn" || s == "request_error" || s == "request_info") 
 				{
 					ReadLN(msg);

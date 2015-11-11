@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
+
+#define MAX_BUF_SIZE 60000
 #define ON_WINDOWS 1   // I love windows for this so much, fucking bustards
 #define ON_NORMALSYSTEM 2
 
@@ -209,6 +211,19 @@ namespace newsockets {
 				Close();
 			}
 
+			void Reset(bool block = true)
+			{
+				Close();
+				InitEmpty();
+				id = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				if (!Exist())
+				{
+					printf("Socket creation error");
+					return;
+				}
+				if (!block) MakeNonBlock();
+			}
+
 			bool Exist() 
 			{
 				#if PLATFORM == PLATFORM_WINDOWS
@@ -264,20 +279,24 @@ namespace newsockets {
 				return size == sendto(id, data, size, flag, dest.SockAdress(), dest.SizeOfSockaddr());
 			}
 
-			bool Recive(char * data, int size, IPAdress & source, int flag = 0) 
+			bool Recive(std::string & destdata, IPAdress & source, int flag = 0) 
 			{
-				if (size <= 0 || !Exist()) { return false; }
+				char buff[MAX_BUF_SIZE];
+				destdata.clear();
+				if (!Exist()) { return false; }
 				int sizeofSourceaddr = source.SizeOfSockaddr();
+				//memset(buff, 0, MAX_BUF_SIZE);
 				#if PLATFORM == PLATFORM_WINDOWS
-					if  (recvfrom(id, data, size, flag, source.SockAdress(), &sizeofSourceaddr) == SOCKET_ERROR && WSAGetLastError() != WSAEMSGSIZE) 
+					if  (recvfrom(id, buff, MAX_BUF_SIZE, flag, source.SockAdress(), &sizeofSourceaddr) == SOCKET_ERROR && WSAGetLastError() != WSAEMSGSIZE) 
 				#else
 				    if (recvfrom(id, data, size, flag, source.SockAdress(), &sizeofSourceaddr) == -1)
 				#endif
-				{
-				//	printf("%d", WSAGetLastError());
-					return false;
-				}
+					{
+					//	printf("%d", WSAGetLastError());
+						return false;
+					}
 					source.RelaxAfterRead();
+					destdata.append(buff, MAX_BUF_SIZE);
 					return true;
 				}
 
